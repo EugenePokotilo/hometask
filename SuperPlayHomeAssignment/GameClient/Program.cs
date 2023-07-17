@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Json;
+using System.Net.Mime;
 using System.Net.WebSockets;
 using System.Security.Claims;
 using System.Text;
@@ -10,8 +11,10 @@ using Common.Models;
 using Common.Models.Api;
 using Common.Models.Infrastructure;
 using Common.Networking;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Hosting;
 
 namespace GameClient // Note: actual namespace depends on the project name.
 {
@@ -37,7 +40,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
              * send resourceType value playerId
              * exit
              */
-
 
             while (true)
             {

@@ -15,6 +15,8 @@ using Newtonsoft.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,8 +53,17 @@ builder.Services.AddScoped<CurrentUserProvider>();
 builder.Services.AddScoped<IPlayerRepository, InMemoryPlayerRepository>(); //as it's for test reasons it might be even a singleton
 builder.Services.AddScoped<IResourceRepository, InMemoryResourceRepository>();
 
+builder.Host.UseSerilog(
+    
+    (hostingContext, loggerConfiguration) =>
+    loggerConfiguration.ReadFrom.Configuration(hostingContext.Configuration)
+    
+    );
+//builder.Host.UseSerilog();
+
 var app = builder.Build();
 
+    
 //HTTP pipeline
 if (app.Environment.IsDevelopment())
 {

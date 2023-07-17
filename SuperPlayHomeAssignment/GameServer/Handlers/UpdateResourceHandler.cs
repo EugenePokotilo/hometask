@@ -20,7 +20,6 @@ public class UpdateResourceHandler : IGameOperationRequestHandler<UpdateResource
     //todo: just updating the state received from the client is not good, it worth sending event smth happened and update state accordingly
     public async Task<IHandlerResponse> Handle(UpdateResourcesOperationRequest data)
     {
-        Console.WriteLine($"received resource: {data.Value}");
         var currentUser = _currentUserProvider.GetUserInfo();
         _resourceRepository.UpdateResources(currentUser.UserId, data.ResourceType, data.Value);
         

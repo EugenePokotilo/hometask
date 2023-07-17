@@ -30,7 +30,7 @@ public class WebSocketConnectionMiddleware
     }
 
     // IMessageWriter is injected into InvokeAsync
-    public async Task InvokeAsync(HttpContext httpContext, IServiceProvider serviceProvider, IPlayerConnectionManager playerConnectionManager, CurrentUserProvider currentUserProvider)
+    public async Task InvokeAsync(HttpContext httpContext, IServiceProvider serviceProvider, IPlayerConnectionManager playerConnectionManager, CurrentUserProvider currentUserProvider, ILogger<WebSocketConnectionMiddleware> logger)
     {
         if (httpContext.Request.Path == "/game")
         {
@@ -46,7 +46,7 @@ public class WebSocketConnectionMiddleware
             {
                 using (WebSocket webSocket = await httpContext.WebSockets.AcceptWebSocketAsync())
                 {
-                    await Pipe(webSocket, serviceProvider,playerConnectionManager, currentUserProvider.GetUserInfo().Udid);
+                    await Pipe(webSocket, serviceProvider,playerConnectionManager, currentUserProvider.GetUserInfo().Udid, logger);
                 }    
             }
         }
@@ -54,7 +54,7 @@ public class WebSocketConnectionMiddleware
         await _next(httpContext);
     }
     
-    private async Task Pipe(WebSocket webSocket, IServiceProvider serviceProvider, IPlayerConnectionManager playerConnectionManager, string udid)
+    private async Task Pipe(WebSocket webSocket, IServiceProvider serviceProvider, IPlayerConnectionManager playerConnectionManager, string udid, ILogger<WebSocketConnectionMiddleware> logger)
     {
         playerConnectionManager.RegisterConnection(udid, webSocket);
         
@@ -75,6 +75,7 @@ public class WebSocketConnectionMiddleware
                 .GetMethods()
                 .Single()
                 .Invoke(handler, new []{dataModel})!;
+            
             try
             {
                 var response = await task;
@@ -85,7 +86,7 @@ public class WebSocketConnectionMiddleware
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                logger.LogError(e, "Error occured during handling.");
             }
             
             result = await webSocket.ReceiveGameDto(CancellationToken.None);

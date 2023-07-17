@@ -2,6 +2,7 @@ using Common.Models;
 using GameServer.ConnectionManagement;
 using GameServer.Repositories;
 using GameServer.Repositories.Entities;
+using Serilog;
 
 namespace GameServer.Handlers;
 
@@ -11,13 +12,15 @@ public class SendGiftHandler : IGameOperationRequestHandler<SendGiftOperationReq
     private readonly IResourceRepository _resourceRepository;
     private readonly IPlayerRepository _playerRepository;
     private readonly IPlayerNotificator _playerNotificator;
+    private readonly ILoggerFactory _loggerFactory;
 
-    public SendGiftHandler(CurrentUserProvider currentUserProvider, IResourceRepository resourceRepository, IPlayerRepository playerRepository, IPlayerNotificator playerNotificator)
+    public SendGiftHandler(CurrentUserProvider currentUserProvider, IResourceRepository resourceRepository, IPlayerRepository playerRepository, IPlayerNotificator playerNotificator, ILoggerFactory loggerFactory)
     {
         _currentUserProvider = currentUserProvider;
         _resourceRepository = resourceRepository;
         _playerRepository = playerRepository;
         _playerNotificator = playerNotificator;
+        _loggerFactory = loggerFactory;
     }
     
     public async Task<IHandlerResponse> Handle(SendGiftOperationRequest data)
