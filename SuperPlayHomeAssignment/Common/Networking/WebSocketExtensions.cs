@@ -1,6 +1,7 @@
 using System.Net.WebSockets;
 using System.Text;
 using Common.Models;
+using Common.Models.Infrastructure;
 using Newtonsoft.Json;
 
 namespace Common.Networking;
@@ -16,8 +17,6 @@ public static class WebSocketExtensions
         var bytesReceived = new ArraySegment<byte>(responseBuffer, offset, packet);
         var response = await webSocket.ReceiveAsync(bytesReceived, token);
         
-        Console.WriteLine($"response.count: {response.Count}, bytesReceived.Count: {bytesReceived.Count}");
-
         return response == null 
             ? null 
            // : (responseBuffer.Decode(response.Count), response);

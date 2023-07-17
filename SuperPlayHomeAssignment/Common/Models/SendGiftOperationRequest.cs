@@ -1,4 +1,8 @@
+using Common.Models.Infrastructure;
+
 namespace Common.Models;
+
+[GameOperationType(GameOperationType.SendGiftRequest)]
 
 public class SendGiftOperationRequest
 {

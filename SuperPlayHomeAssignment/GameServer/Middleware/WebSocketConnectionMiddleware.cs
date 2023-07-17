@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.WebSockets;
 using Common.Models;
+using Common.Models.Infrastructure;
 using Common.Networking;
 using GameServer.Configurations;
 using GameServer.ConnectionManagement;
@@ -62,8 +63,7 @@ public class WebSocketConnectionMiddleware
         {
             var gameDto = result.Value.Message;
             
-            //todo: avoid reflection
-            var dataType = typeof(GameDto).Assembly.GetType(gameDto.DataTypeName);
+            var dataType = GameDto.GetDataModelType(gameDto.OperationType);
             var dataModel = JsonConvert.DeserializeObject(gameDto.Data, dataType);
             var handlerType = HandlersConfiguration.GetHandlerFor(dataType);
             
@@ -85,9 +85,7 @@ public class WebSocketConnectionMiddleware
             }
             catch (Exception e)
             {
-                //todo: impl exception handling
-                Console.WriteLine("handling fails..");
-                throw;
+                Console.WriteLine(e.Message);
             }
             
             result = await webSocket.ReceiveGameDto(CancellationToken.None);

@@ -8,6 +8,7 @@ using System.Text;
 using Common;
 using Common.Models;
 using Common.Models.Api;
+using Common.Models.Infrastructure;
 using Common.Networking;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -29,6 +30,7 @@ namespace GameClient // Note: actual namespace depends on the project name.
              * Commands:
              * login {udid}
              * connect
+             * load
              * disconnect
              * print
              * update resourceType value
@@ -70,6 +72,9 @@ namespace GameClient // Note: actual namespace depends on the project name.
                             }
                             await EstablishWebsocketConnection(_authDetails.Token, _cts.Token);
                             Console.WriteLine($"Connection established.");
+                            break;
+                        case "load" :
+                            await _client.SendMessage(new GameDto(new ResourceBalanceRequest()), _cts.Token);
                             break;
                         case "disconnect" :
                             throw new NotImplementedException();
@@ -121,15 +126,12 @@ namespace GameClient // Note: actual namespace depends on the project name.
 
         private static async Task EstablishWebsocketConnection(string accessToken, CancellationToken token)
         {
-            //todo: jwt token
-            Console.WriteLine("establishing connection..");
+            Console.WriteLine("Establishing connection..");
             _client = new ClientWebSocket();
             var serviceUri = new Uri($"ws://localhost:5060/game?access_token={accessToken}");
             await _client.ConnectAsync(serviceUri, token);
            
-            ReceiveMessages(_cts.Token);
-            _receivingTask =
-                Task.Run(() => ReceiveMessages(_cts.Token).Wait(token), _cts.Token);
+            _receivingTask = Task.Run(() => ReceiveMessages(_cts.Token), _cts.Token);
         }
 
         private static async Task ReceiveMessages(CancellationToken cancellationToken)
@@ -141,19 +143,27 @@ namespace GameClient // Note: actual namespace depends on the project name.
                     var result = await _client.ReceiveGameDto(_cts.Token);
                     if (result is { Message: { } } && !result.Value.Response.CloseStatus.HasValue)
                     {
-                        //todo: rely on enum values instead of type names
-                        if(result.Value.Message.DataTypeName == typeof(GiftEvent).FullName)
+                        if(result.Value.Message.OperationType == GameOperationType.GiftEvent)
                         {
                             var giftEvent = JsonConvert.DeserializeObject<GiftEvent>(result.Value.Message.Data);
                             resources[giftEvent.ResourceType] = giftEvent.NewBalanceValue;
                             Console.WriteLine($"Gift received: {giftEvent.ResourceType} +{giftEvent.Value} from {giftEvent.GiftSender}");
                             Console.WriteLine($"New balance: {giftEvent.ResourceType}: {giftEvent.NewBalanceValue}");
                         }
-                        if (result.Value.Message.DataTypeName == typeof(ResourceBalanceResponse).FullName)
+                        if(result.Value.Message.OperationType == GameOperationType.ResourceBalanceResponse)
                         {
                             var resourceBalance = JsonConvert.DeserializeObject<ResourceBalanceResponse>(result.Value.Message.Data);
                             resources[resourceBalance.ResourceType] = resourceBalance.NewBalanceValue;
                             Console.WriteLine($"New balance: {resourceBalance.ResourceType}: {resourceBalance.NewBalanceValue}");
+                        }
+                        if(result.Value.Message.OperationType == GameOperationType.ResourcesBalanceResponse)
+                        {
+                            var resourcesBalance = JsonConvert.DeserializeObject<ResourcesBalanceResponse>(result.Value.Message.Data);
+                            resourcesBalance.Resources.ForEach(r =>
+                            {
+                                resources[r.ResourceType] = r.NewBalanceValue;
+                                Console.WriteLine($"New balance: {r.ResourceType}: {r.NewBalanceValue}");    
+                            });
                         }
                     }
                     else
@@ -168,13 +178,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
                     
                 }
             }
-        }
-
-        public class AuthDetails
-        {
-            public string UdId { get; set; }
-            public long PlayerId { get; set; }
-            public string Token { get; set; }
         }
     }
 }

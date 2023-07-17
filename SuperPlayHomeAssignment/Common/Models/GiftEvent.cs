@@ -1,5 +1,8 @@
+using Common.Models.Infrastructure;
+
 namespace Common.Models;
 
+[GameOperationType(GameOperationType.GiftEvent)]
 public class GiftEvent
 {   
     public ResourceType ResourceType { get; set; }

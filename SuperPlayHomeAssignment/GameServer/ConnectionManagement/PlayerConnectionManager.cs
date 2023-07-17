@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using Common.Models;
+using Common.Models.Infrastructure;
 using Common.Networking;
 
 namespace GameServer.ConnectionManagement;

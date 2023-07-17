@@ -37,7 +37,8 @@ public class SendGiftHandler : IGameOperationRequestHandler<SendGiftOperationReq
                 $"Insufficient resource amount. User {currentUser.UserId} wants to send a gift {data.ResourceType} with value {data.Value}, but only has {userResources.Value}");
         }
         var receiverResources = _resourceRepository.GetResourcesFor(data.FriendPlayerId, data.ResourceType);
-        _resourceRepository.UpdateResources(currentUser.UserId, data.ResourceType, userResources.Value - data.Value);
+        var newUserResourceBalance =  userResources.Value - data.Value;
+        _resourceRepository.UpdateResources(currentUser.UserId, data.ResourceType, newUserResourceBalance);
         var newFriendResourceBalance = receiverResources.Value + data.Value;
         _resourceRepository.UpdateResources(data.FriendPlayerId, data.ResourceType, newFriendResourceBalance);
         
@@ -52,7 +53,7 @@ public class SendGiftHandler : IGameOperationRequestHandler<SendGiftOperationReq
         return new HandlerResponse(new ResourceBalanceResponse()
         {
             ResourceType = data.ResourceType,
-            NewBalanceValue = data.Value
+            NewBalanceValue = newUserResourceBalance
         });
     }
 }

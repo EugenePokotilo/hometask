@@ -15,13 +15,7 @@ public class InMemoryResourceRepository : IResourceRepository
         var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == resourceType);
         if (resource == null)
         {
-            resource = new Resource()
-            {
-                PlayerId = playerId,
-                Type = resourceType,
-                Value = value
-            };
-            Resources.Add(resource);
+            resource = Create(playerId, resourceType);  //race conditioning.  Granular locking is needed
         }
         resource.Value = value;
     }
@@ -31,15 +25,37 @@ public class InMemoryResourceRepository : IResourceRepository
         var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == resourceType);
         if (resource == null)
         {
-            resource = new Resource()
-            {
-                PlayerId = playerId,
-                Type = resourceType,
-                Value = 0
-            };
-            Resources.Add(resource);
+            resource = Create(playerId, resourceType);
         }
         return resource;
     }
+
+    public IEnumerable<Resource> GetResourcesFor(long playerId)
+    {
+        var resources = Resources.Where(r => r.PlayerId == playerId).ToList();
         
+        if (resources.FirstOrDefault(r => r.Type == ResourceType.Coins) == null)
+        {
+            resources.Add(Create(playerId, ResourceType.Coins));
+        }
+        
+        if (resources.FirstOrDefault(r => r.Type == ResourceType.Rolls) == null)
+        {
+            resources.Add(Create(playerId, ResourceType.Rolls));
+        }
+        
+        return resources;
+    }
+
+    private Resource Create(long playerId, ResourceType type)
+    {
+        var r = new Resource()
+        {
+            PlayerId = playerId,
+            Type = type,
+            Value = 0
+        };
+        Resources.Add(r);
+        return r;
+    }
 }
