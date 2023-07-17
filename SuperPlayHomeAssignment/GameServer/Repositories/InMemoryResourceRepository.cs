@@ -7,44 +7,126 @@ namespace GameServer.Repositories;
 
 public class InMemoryResourceRepository : IResourceRepository
 {
-    public static readonly List<Resource> Resources = new List<Resource>();
+    private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+    private static readonly List<Resource> Resources = new List<Resource>();
 
-    //todo: impl concurrency - consider granular locking mechanism
+    //todo: avoid using updates from clients
     public void UpdateResources(long playerId, ResourceType resourceType, long value)
     {
-        var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == resourceType);
-        if (resource == null)
+        _lock.EnterWriteLock();
+        try
         {
-            resource = Create(playerId, resourceType);  //race conditioning.  Granular locking is needed
+            var resource = GetOrCreate(playerId, resourceType);
+            resource.Value = value;
         }
-        resource.Value = value;
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+    
+    public Resource WithdrawResource(long playerId, ResourceType resourceType, long withdrawAmount)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            var resource = GetOrCreate(playerId, resourceType);
+            if (resource.Value < withdrawAmount)
+            {
+                throw new InvalidOperationException($"Insufficient resource amount. Player {playerId} tries to withdraw {resourceType} in amount of {withdrawAmount}, but only has {resource.Value}");
+            }
+            resource.Value -= withdrawAmount;
+            return resource; //todo: return clones
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
+    public Resource DepositResource(long playerId, ResourceType resourceType, long depositValue)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            var resource = GetOrCreate(playerId, resourceType);
+            resource.Value += depositValue;
+            return resource;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
     public Resource GetResourcesFor(long playerId, ResourceType resourceType)
     {
-        var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == resourceType);
-        if (resource == null)
+        //todo: it worth creating all player entities on player create so less upgradeable locks are used 
+        _lock.EnterUpgradeableReadLock();
+
+        try
         {
-            resource = Create(playerId, resourceType);
+            var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == resourceType);
+            if (resource != null)
+            {
+                return resource;
+            }
+            else
+            {
+                _lock.EnterWriteLock();
+                try
+                {
+                    resource = Create(playerId, resourceType);
+                }
+                finally
+                {
+                    _lock.ExitWriteLock();
+                }
+
+                return resource;
+            }
         }
-        return resource;
+        finally
+        {
+            _lock.ExitUpgradeableReadLock();
+        }
     }
 
     public IEnumerable<Resource> GetResourcesFor(long playerId)
     {
-        var resources = Resources.Where(r => r.PlayerId == playerId).ToList();
-        
-        if (resources.FirstOrDefault(r => r.Type == ResourceType.Coins) == null)
+        _lock.EnterUpgradeableReadLock();
+
+        try
         {
-            resources.Add(Create(playerId, ResourceType.Coins));
-        }
+            var resources = Resources.Where(r => r.PlayerId == playerId).ToList();
+            var hasCoins = resources.FirstOrDefault(r => r.Type == ResourceType.Coins) != null;
+            var hasRolls = resources.FirstOrDefault(r => r.Type == ResourceType.Rolls) != null;
+            if (!hasCoins || !hasRolls)
+            {
+                _lock.EnterWriteLock();
+                try
+                {
+                    if (!hasCoins)
+                    {
+                        resources.Add(Create(playerId, ResourceType.Coins));
+                    }   
+                    if (!hasRolls)
+                    {
+                        resources.Add(Create(playerId, ResourceType.Rolls));
+                    }   
+                }
+                finally
+                {
+                    _lock.ExitWriteLock();
+                }
+            }
         
-        if (resources.FirstOrDefault(r => r.Type == ResourceType.Rolls) == null)
+            return resources;
+        }
+        finally
         {
-            resources.Add(Create(playerId, ResourceType.Rolls));
+            _lock.ExitUpgradeableReadLock();
         }
-        
-        return resources;
     }
 
     private Resource Create(long playerId, ResourceType type)
@@ -57,5 +139,16 @@ public class InMemoryResourceRepository : IResourceRepository
         };
         Resources.Add(r);
         return r;
+    }
+
+    private Resource GetOrCreate(long playerId, ResourceType type)
+    {
+        var resource = Resources.FirstOrDefault(r => r.PlayerId == playerId && r.Type == type);
+        if (resource == null)
+        {
+            resource = Create(playerId, type); 
+        }
+
+        return resource;
     }
 }
