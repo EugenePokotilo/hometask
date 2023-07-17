@@ -26,7 +26,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
         private static ClientWebSocket _client;
         private static CancellationTokenSource _cts = new CancellationTokenSource();
         private static Task _receivingTask = null;
-        private static object _lock = new object();
         static async Task Main(string[] args)
         {
             /*
@@ -38,7 +37,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
              * print
              * update resourceType value
              * send resourceType value playerId
-             * exit
              */
 
             while (true)
@@ -66,7 +64,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
                             Console.WriteLine($"Connection established: {loginResponse.ConnectionEsteblished}");
                             break;
                         case "connect" :
-                            //todo: manage connection 
                             _cts.CancelAfter(TimeSpan.FromSeconds(1200));
                             if (_authDetails == null)
                             {
@@ -79,7 +76,7 @@ namespace GameClient // Note: actual namespace depends on the project name.
                             await _client.SendMessage(new GameDto(new ResourceBalanceRequest()), _cts.Token);
                             break;
                         case "disconnect" :
-                            throw new NotImplementedException();
+                            await _client.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, null, _cts.Token);
                             break;
                         case "print" : 
                             resources.ToList().ForEach(r => Console.WriteLine($"{r.Key}: {r.Value}"));
@@ -103,9 +100,6 @@ namespace GameClient // Note: actual namespace depends on the project name.
                                 Value = sendResValue,
                                 FriendPlayerId = sendToPlayerId
                             }), _cts.Token);
-                            break;
-                        case "exit" :
-                            throw new NotImplementedException();
                             break;
                         default: 
                             Console.WriteLine();
@@ -170,7 +164,10 @@ namespace GameClient // Note: actual namespace depends on the project name.
                     }
                     else
                     {
-                        await _client.CloseAsync(result.Value.Response.CloseStatus.Value, result.Value.Response.CloseStatusDescription, CancellationToken.None);
+                        if (_client.State != WebSocketState.Closed)
+                        {
+                            await _client.CloseOutputAsync(result.Value.Response.CloseStatus.Value, result.Value.Response.CloseStatusDescription, CancellationToken.None);    
+                        }
                         return;
                     }
                 }
